@@ -1,3 +1,5 @@
+import { supabase } from "./supabase.js"
+
 /**
  * ============================================
  * CBP BEBIDAS - APLICAÇÃO PRINCIPAL v2.0
