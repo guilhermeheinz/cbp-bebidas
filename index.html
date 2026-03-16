@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CBP Bebidas - Sistema ERP</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Sidebar de Navegação -->
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo">
+                <i class="fas fa-wine-bottle"></i>
+                <span>CBP Bebidas</span>
+            </div>
+            <button class="menu-toggle" id="menuToggle">
+                <i class="fas fa-bars"></i>
+            </button>
+        </div>
+
+        <ul class="nav-menu">
+            <li class="nav-item active" data-tab="dashboard">
+                <i class="fas fa-chart-line"></i>
+                <span>Dashboard Geral</span>
+            </li>
+            <li class="nav-item" data-tab="vendas">
+                <i class="fas fa-shopping-cart"></i>
+                <span>Vendas</span>
+            </li>
+            <li class="nav-item" data-tab="caixa">
+                <i class="fas fa-cash-register"></i>
+                <span>Caixa</span>
+            </li>
+            <li class="nav-item" data-tab="fiado">
+                <i class="fas fa-hand-holding-usd"></i>
+                <span>Fiado</span>
+            </li>
+            <li class="nav-item" data-tab="gestao">
+                <i class="fas fa-chart-pie"></i>
+                <span>Gestão</span>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            <p>v3.0.0 - Sistema Local</p>
+        </div>
+    </nav>
+
+    <!-- Conteúdo Principal -->
+    <main class="main-content">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="page-title" id="pageTitle">Dashboard Geral</h1>
+            <div class="header-actions">
+                <span class="operador-ativo" id="operadorAtivoNome" title="Operador ativo"><i class="fas fa-user"></i> <span id="operadorAtivoTexto">—</span></span>
+                <button class="btn btn-secondary" id="btnTrocarOperador" title="Trocar operador"><i class="fas fa-user-switch"></i> Trocar operador</button>
+                <button class="btn btn-secondary" id="btnFullscreen">
+                    <i class="fas fa-expand"></i> Tela Cheia
+                </button>
+                <div class="datetime">
+                    <span id="currentDate"></span>
+                    <span id="currentTime"></span>
+                </div>
+            </div>
+        </header>
+
+        <!-- ==================== DASHBOARD (simplificado: só total hoje + gráfico pagamentos) ==================== -->
+        <section class="tab-content active" id="dashboard">
+            <div class="cards-grid dashboard-simples">
+                <div class="info-card">
+                    <div class="card-icon bg-yellow"><i class="fas fa-coins"></i></div>
+                    <div class="card-info">
+                        <h3>Total Vendido Hoje</h3>
+                        <p class="card-value" id="vendaHoje">R$ 0,00</p>
+                    </div>
+                </div>
+                <div class="chart-container chart-pagamentos-pequeno">
+                    <h3>Formas de pagamento (hoje)</h3>
+                    <p class="chart-legend-small">Dinheiro · Débito · Crédito · Pix · Fiado</p>
+                    <canvas id="graficoPizzaPagamentos"></canvas>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== VENDAS ==================== -->
+        <section class="tab-content" id="vendas">
+            <div id="dicasAtalhos"></div>
+
+            <div class="vendas-container">
+                <div class="venda-form card">
+                    <h3><i class="fas fa-shopping-cart"></i> Nova Venda</h3>
+
+                    <!-- Busca de produto -->
+                    <div class="form-group" style="position:relative;">
+                        <label for="buscaProdutoVenda"><i class="fas fa-search"></i> Adicionar Produto ao Carrinho</label>
+                        <input type="text" id="buscaProdutoVenda" placeholder="Digite o nome do produto..." autocomplete="off"
+                            style="font-size:1rem;padding:10px 14px;">
+                        <div id="resultadosBusca" style="
+                            display:none;position:absolute;top:100%;left:0;right:0;z-index:999;
+                            background:#1e1e1e;border:1px solid #555;border-radius:0 0 8px 8px;
+                            max-height:240px;overflow-y:auto;box-shadow:0 8px 24px #000a;
+                        "></div>
+                    </div>
+
+                    <!-- Carrinho -->
+                    <div id="carrinhoVenda" style="margin-bottom:14px;display:none;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                            <span style="font-weight:600;color:#f0c040;font-size:0.92rem;">
+                                <i class="fas fa-list-ul"></i> Itens no Carrinho
+                            </span>
+                            <button class="btn btn-sm" style="background:#2a2a2a;color:#bbb;border:1px solid #444;font-size:0.75rem;" onclick="limparCarrinho()">
+                                <i class="fas fa-trash"></i> Limpar tudo
+                            </button>
+                        </div>
+                        <div id="listaCarrinho" style="display:flex;flex-direction:column;gap:5px;"></div>
+                        <div style="margin-top:10px;padding:10px 14px;background:#161616;border:1px solid #333;border-radius:8px;display:flex;justify-content:space-between;align-items:center;">
+                            <span style="color:#aaa;font-size:0.9rem;">Subtotal:</span>
+                            <span id="subtotalCarrinho" style="font-size:1.15rem;font-weight:700;color:#f0c040;">R$ 0,00</span>
+                        </div>
+                    </div>
+
+                    <!-- Valor -->
+                    <div class="form-group">
+                        <label for="valorVenda">
+                            Valor da Venda (R$)
+                            <small style="color:#666;"> — calculado pelo carrinho ou edite manualmente</small>
+                        </label>
+                        <input type="number" id="valorVenda" step="0.01" placeholder="0,00" class="input-large">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="descontoVenda">Desconto (R$) <small style="color:#aaa;">— opcional</small></label>
+                        <input type="number" id="descontoVenda" step="0.01" placeholder="0,00">
+                        <div id="valorFinalComDesconto" style="margin-top:4px;color:#FFD700;font-size:0.9rem;"></div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Forma de Pagamento <small style="color:#aaa;">(atalhos: 1–5)</small></label>
+                        <div class="payment-buttons">
+                            <button class="btn-payment" data-payment="dinheiro"><i class="fas fa-money-bill-wave"></i> Dinheiro <kbd>1</kbd></button>
+                            <button class="btn-payment" data-payment="debito"><i class="fas fa-credit-card"></i> Débito <kbd>2</kbd></button>
+                            <button class="btn-payment" data-payment="credito"><i class="fas fa-credit-card"></i> Crédito <kbd>3</kbd></button>
+                            <button class="btn-payment" data-payment="pix"><i class="fas fa-qrcode"></i> Pix <kbd>4</kbd></button>
+                            <button class="btn-payment" data-payment="fiado"><i class="fas fa-hand-holding-usd"></i> Fiado <kbd>5</kbd></button>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="campoTroco" style="display: none;">
+                        <label for="valorPago">Valor Pago (R$)</label>
+                        <input type="number" id="valorPago" step="0.01" placeholder="0,00">
+                        <div class="troco-info" id="trocoInfo">
+                            <span>Troco: <strong id="valorTroco">R$ 0,00</strong></span>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="campoFiado" style="display: none;">
+                        <label for="selectCliente">Selecionar Cliente</label>
+                        <select id="selectCliente">
+                            <option value="">Selecione um cliente...</option>
+                        </select>
+                        <div class="saldo-atual" id="saldoAtualCliente"></div>
+                    </div>
+
+                    <div class="form-actions">
+                        <button class="btn btn-primary btn-large" id="btnRegistrarVenda">
+                            <i class="fas fa-check"></i> Registrar Venda
+                        </button>
+                        <button class="btn btn-secondary" id="btnLimparVenda">
+                            <i class="fas fa-eraser"></i> Limpar
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Vendas do Dia -->
+                <div class="vendas-hoje card">
+                    <h3><i class="fas fa-list"></i> Vendas de Hoje</h3>
+                    <div class="table-responsive">
+                        <table class="data-table" id="tabelaVendas">
+                            <thead>
+                                <tr>
+                                    <th>Hora</th>
+                                    <th>Valor</th>
+                                    <th>Pagamento</th>
+                                    <th>Itens</th>
+                                    <th>Status</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                            <tfoot>
+                                <tr>
+                                    <td><strong>Total:</strong></td>
+                                    <td colspan="5" id="totalVendasDia"><strong>R$ 0,00</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== CAIXA ==================== -->
+        <section class="tab-content" id="caixa">
+            <div class="caixa-container">
+                <div class="caixa-status card" id="caixaStatus">
+                    <h3><i class="fas fa-cash-register"></i> Status do Caixa</h3>
+                    <div class="status-info" id="statusInfo">
+                        <p class="status-fechado"><i class="fas fa-lock"></i> Caixa Fechado</p>
+                    </div>
+                    <div class="caixa-actions" id="caixaActions">
+                        <button class="btn btn-success btn-large" id="btnAbrirCaixa">
+                            <i class="fas fa-lock-open"></i> Abrir Caixa
+                        </button>
+                    </div>
+                </div>
+
+                <div class="caixa-form card" id="formAbrirCaixa" style="display: none;">
+                    <h3><i class="fas fa-play-circle"></i> Abrir Caixa</h3>
+                    <div class="form-group">
+                        <label for="valorInicial">Valor Inicial (R$)</label>
+                        <input type="number" id="valorInicial" step="0.01" placeholder="0,00" class="input-large">
+                    </div>
+                    <div class="form-actions">
+                        <button class="btn btn-success" id="btnConfirmarAbertura">
+                            <i class="fas fa-check"></i> Abrir Caixa
+                        </button>
+                        <button class="btn btn-secondary" id="btnCancelarAbertura">
+                            <i class="fas fa-times"></i> Cancelar
+                        </button>
+                    </div>
+                </div>
+
+                <div class="caixa-movimentacoes" id="caixaMovimentacoes" style="display: none;">
+                    <div class="movimentacao-form card">
+                        <h3><i class="fas fa-exchange-alt"></i> Movimentações</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="tipoMovimentacao">Tipo</label>
+                                <select id="tipoMovimentacao">
+                                    <option value="entrada">Entrada</option>
+                                    <option value="retirada">Retirada</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="valorMovimentacao">Valor (R$)</label>
+                                <input type="number" id="valorMovimentacao" step="0.01" placeholder="0,00">
+                            </div>
+                            <div class="form-group flex-grow">
+                                <label for="descricaoMovimentacao">Descrição</label>
+                                <input type="text" id="descricaoMovimentacao" placeholder="Descrição">
+                            </div>
+                        </div>
+                        <div class="form-actions">
+                            <button class="btn btn-primary" id="btnRegistrarMovimentacao">
+                                <i class="fas fa-plus"></i> Registrar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="caixa-resumo card">
+                        <h3><i class="fas fa-chart-bar"></i> Resumo do Caixa</h3>
+                        <div class="resumo-grid">
+                            <div class="resumo-item"><span class="label">Valor Inicial:</span><span class="value" id="resumoValorInicial">R$ 0,00</span></div>
+                            <div class="resumo-item"><span class="label">Total Vendido:</span><span class="value" id="resumoTotalVendido">R$ 0,00</span></div>
+                            <div class="resumo-item"><span class="label">Entradas:</span><span class="value positive" id="resumoEntradas">R$ 0,00</span></div>
+                            <div class="resumo-item"><span class="label">Retiradas:</span><span class="value negative" id="resumoRetiradas">R$ 0,00</span></div>
+                            <div class="resumo-item highlight"><span class="label">Valor Final:</span><span class="value" id="resumoValorFinal">R$ 0,00</span></div>
+                        </div>
+
+                        <h4 class="mt-3">Vendas por Forma de Pagamento</h4>
+                        <div class="pagamento-grid">
+                            <div class="pagamento-item"><i class="fas fa-money-bill-wave"></i><span class="label">Dinheiro:</span><span class="value" id="pagDinheiro">R$ 0,00</span></div>
+                            <div class="pagamento-item"><i class="fas fa-credit-card"></i><span class="label">Débito:</span><span class="value" id="pagDebito">R$ 0,00</span></div>
+                            <div class="pagamento-item"><i class="fas fa-credit-card"></i><span class="label">Crédito:</span><span class="value" id="pagCredito">R$ 0,00</span></div>
+                            <div class="pagamento-item"><i class="fas fa-qrcode"></i><span class="label">Pix:</span><span class="value" id="pagPix">R$ 0,00</span></div>
+                            <div class="pagamento-item"><i class="fas fa-hand-holding-usd"></i><span class="label">Fiado:</span><span class="value" id="pagFiado">R$ 0,00</span></div>
+                        </div>
+
+                        <div class="form-actions mt-3">
+                            <button class="btn btn-danger btn-large" id="btnFecharCaixa">
+                                <i class="fas fa-lock"></i> Fechar Caixa
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="movimentacoes-lista card">
+                        <h3><i class="fas fa-list-alt"></i> Histórico de Movimentações</h3>
+                        <div class="table-responsive">
+                            <table class="data-table" id="tabelaMovimentacoes">
+                                <thead>
+                                    <tr><th>Hora</th><th>Tipo</th><th>Valor</th><th>Descrição</th></tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== FIADO ==================== -->
+        <section class="tab-content" id="fiado">
+            <div class="fiado-container">
+                <div class="fiado-resumo cards-grid">
+                    <div class="info-card">
+                        <div class="card-icon bg-cyan"><i class="fas fa-users"></i></div>
+                        <div class="card-info"><h3>Total de Clientes</h3><p class="card-value" id="fiadoTotalClientes">0</p></div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-red"><i class="fas fa-hand-holding-usd"></i></div>
+                        <div class="card-info"><h3>Valor Total em Fiado</h3><p class="card-value" id="fiadoTotalValor">R$ 0,00</p></div>
+                    </div>
+                </div>
+
+                <div class="fiado-actions card">
+                    <button class="btn btn-primary" id="btnCadastrarCliente">
+                        <i class="fas fa-user-plus"></i> Cadastrar Cliente
+                    </button>
+                </div>
+
+                <!-- Busca de clientes (filtro em tempo real por nome ou telefone) -->
+                <div class="fiado-busca card">
+                    <label for="buscaFiado"><i class="fas fa-search"></i> Buscar cliente</label>
+                    <input type="text" id="buscaFiado" placeholder="Digite nome ou telefone..." autocomplete="off">
+                </div>
+
+                <!-- Modal Cadastro Cliente -->
+                <div class="modal" id="modalCliente" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-user-plus"></i> Cadastrar Cliente</h3>
+                            <button class="btn-close" id="btnFecharModalCliente"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group"><label for="nomeCliente">Nome do Cliente</label><input type="text" id="nomeCliente" placeholder="Nome completo"></div>
+                            <div class="form-group"><label for="telefoneCliente">Telefone (opcional)</label><input type="text" id="telefoneCliente" placeholder="(00) 00000-0000"></div>
+                            <div class="form-group"><label for="notasCliente">Observações (opcional)</label><textarea id="notasCliente" placeholder="Anotações sobre o cliente" rows="2"></textarea></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnSalvarCliente"><i class="fas fa-save"></i> Salvar</button>
+                            <button class="btn btn-secondary" id="btnCancelarCliente"><i class="fas fa-times"></i> Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Editar Cliente -->
+                <div class="modal" id="modalEditarCliente" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-user-edit"></i> Editar Cliente</h3>
+                            <button class="btn-close" id="btnFecharModalEditarCliente"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="editarClienteId">
+                            <div class="form-group"><label for="editarClienteNome">Nome</label><input type="text" id="editarClienteNome" placeholder="Nome completo"></div>
+                            <div class="form-group"><label for="editarClienteTelefone">Telefone (opcional)</label><input type="text" id="editarClienteTelefone" placeholder="(00) 00000-0000"></div>
+                            <div class="form-group"><label for="editarClienteNotas">Observações (opcional)</label><textarea id="editarClienteNotas" placeholder="Anotações" rows="2"></textarea></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnSalvarEditarCliente"><i class="fas fa-save"></i> Salvar</button>
+                            <button class="btn btn-secondary" id="btnCancelarEditarCliente">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Pagamento -->
+                <div class="modal" id="modalPagamento" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-money-bill-wave"></i> Registrar Pagamento</h3>
+                            <button class="btn-close" id="btnFecharModalPagamento"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="pagamentoClienteId">
+                            <div class="form-group"><label>Cliente</label><p id="pagamentoClienteNome" class="form-static"></p></div>
+                            <div class="form-group"><label>Saldo Atual</label><p id="pagamentoSaldoAtual" class="form-static text-danger"></p></div>
+                            <div class="form-group"><label for="valorPagamento">Valor do Pagamento (R$)</label><input type="number" id="valorPagamento" step="0.01" placeholder="0,00" class="input-large"></div>
+                            <div class="form-group">
+                                <label>Tipo de Pagamento</label>
+                                <div class="radio-group">
+                                    <label class="radio-label"><input type="radio" name="tipoPagamento" value="total" checked><span>Quitação Total</span></label>
+                                    <label class="radio-label"><input type="radio" name="tipoPagamento" value="parcial"><span>Quitação Parcial</span></label>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-success" id="btnConfirmarPagamento"><i class="fas fa-check"></i> Confirmar</button>
+                            <button class="btn btn-secondary" id="btnCancelarPagamento"><i class="fas fa-times"></i> Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Histórico Cliente -->
+                <div class="modal modal-large" id="modalHistorico" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-history"></i> Histórico do Cliente</h3>
+                            <button class="btn-close" id="btnFecharModalHistorico"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <h4 id="historicoClienteNome"></h4>
+                            <div class="historico-tabs">
+                                <button class="tab-btn active" data-tab="compras">Compras</button>
+                                <button class="tab-btn" data-tab="pagamentos">Pagamentos</button>
+                            </div>
+                            <div class="tab-panel active" id="tabCompras">
+                                <div class="table-responsive">
+                                    <table class="data-table" id="tabelaHistoricoCompras">
+                                        <thead><tr><th>Data</th><th>Valor</th><th>Produtos</th></tr></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="tab-panel" id="tabPagamentos">
+                                <div class="table-responsive">
+                                    <table class="data-table" id="tabelaHistoricoPagamentos">
+                                        <thead><tr><th>Data</th><th>Valor</th><th>Tipo</th></tr></thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="clientes-lista card">
+                    <h3><i class="fas fa-users"></i> Clientes Cadastrados</h3>
+                    <div class="table-responsive">
+                        <table class="data-table" id="tabelaClientes">
+                            <thead><tr><th>Nome</th><th>Dívida Atual</th><th>Última Compra</th><th>Ações</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== ESTOQUE CIGARROS ==================== -->
+        <section class="tab-content" id="estoque">
+            <div class="estoque-container">
+                <div class="estoque-resumo cards-grid">
+                    <div class="info-card">
+                        <div class="card-icon bg-purple"><i class="fas fa-tags"></i></div>
+                        <div class="card-info"><h3>Produtos</h3><p class="card-value" id="estoqueMarcas">0</p></div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-blue"><i class="fas fa-box"></i></div>
+                        <div class="card-info"><h3>Total Unidades</h3><p class="card-value" id="estoqueUnidades">0</p></div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-green"><i class="fas fa-dollar-sign"></i></div>
+                        <div class="card-info"><h3>Valor Total</h3><p class="card-value" id="estoqueValor">R$ 0,00</p></div>
+                    </div>
+                </div>
+
+                <div class="estoque-actions card">
+                    <button class="btn btn-primary" id="btnCadastrarProduto">
+                        <i class="fas fa-plus"></i> Cadastrar Produto
+                    </button>
+                </div>
+
+                <!-- Modal Cadastro Produto -->
+                <div class="modal" id="modalProduto" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-plus"></i> Cadastrar Produto</h3>
+                            <button class="btn-close" id="btnFecharModalProduto"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group"><label for="marcaProduto">Marca</label><input type="text" id="marcaProduto" placeholder="Ex: Kent"></div>
+                            <div class="form-group"><label for="tipoProduto">Tipo/Modelo</label><input type="text" id="tipoProduto" placeholder="Ex: Azul"></div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="quantidadeProduto">Quantidade</label><input type="number" id="quantidadeProduto" placeholder="0"></div>
+                                <div class="form-group"><label for="estoqueMinimoProduto">Estoque Mínimo</label><input type="number" id="estoqueMinimoProduto" min="0" placeholder="10" value="10"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="valorVendaProduto">Venda Unidade (R$)</label><input type="number" id="valorVendaProduto" step="0.01" placeholder="0,00"></div>
+                                <div class="form-group"><label for="valorVendaPacoteProduto">Venda Pacote 20un (R$)</label><input type="number" id="valorVendaPacoteProduto" step="0.01" placeholder="0,00"></div>
+                                <div class="form-group"><label for="valorCustoProduto">Custo (R$)</label><input type="number" id="valorCustoProduto" step="0.01" placeholder="0,00"></div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnSalvarProduto"><i class="fas fa-save"></i> Salvar</button>
+                            <button class="btn btn-secondary" id="btnCancelarProduto"><i class="fas fa-times"></i> Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Editar Produto -->
+                <div class="modal" id="modalEditarProduto" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-edit"></i> Editar Produto</h3>
+                            <button class="btn-close" id="btnFecharModalEditar"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="editarProdutoId">
+                            <div class="form-group"><label>Produto</label><p id="editarProdutoNome" class="form-static"></p></div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="editarMacos">Maços</label><input type="number" id="editarMacos" min="0" placeholder="0"></div>
+                                <div class="form-group"><label for="editarCarteiras">Carteiras</label><input type="number" id="editarCarteiras" min="0" placeholder="0"></div>
+                                <div class="form-group"><label for="editarQuantidade">Unidades (soltas)</label><input type="number" id="editarQuantidade" min="0" placeholder="0"></div>
+                                <div class="form-group"><label for="editarAdicionar">+ Adicionar un.</label><input type="number" id="editarAdicionar" min="0" placeholder="0"></div>
+                            </div>
+                            <div class="form-group">
+                                <label for="editarEstoqueMinimo">Estoque Mínimo (unidades – alerta)</label>
+                                <input type="number" id="editarEstoqueMinimo" min="0" placeholder="10">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="editarValorVenda">Venda Unidade (R$)</label><input type="number" id="editarValorVenda" step="0.01" placeholder="0,00"></div>
+                                <div class="form-group"><label for="editarValorVendaPacote">Venda Carteira 20un (R$)</label><input type="number" id="editarValorVendaPacote" step="0.01" placeholder="0,00"></div>
+                                <div class="form-group"><label for="editarValorCusto">Custo por Carteira (R$)</label><input type="number" id="editarValorCusto" step="0.01" placeholder="0,00"></div>
+                            </div>
+                            <div class="previsao-estoque" id="previsaoEstoque">
+                                <h4><i class="fas fa-chart-line"></i> Previsão de Estoque</h4>
+                                <p id="textoPrevisao"></p>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnAtualizarProduto"><i class="fas fa-save"></i> Atualizar</button>
+                            <button class="btn btn-secondary" id="btnCancelarEdicao"><i class="fas fa-times"></i> Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="estoque-lista card">
+                    <h3><i class="fas fa-smoking"></i> Produtos em Estoque</h3>
+                    <div class="table-responsive">
+                        <table class="data-table" id="tabelaEstoque">
+                            <thead>
+                                <tr><th>Marca</th><th>Tipo</th><th>Maços</th><th>Carteiras</th><th>Unid.</th><th>Est. Mín.</th><th>V. Venda</th><th>Custo/maço</th><th>Lucro</th><th>Previsão</th><th>Ações</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== ESTOQUE BEBIDAS ==================== -->
+        <section class="tab-content" id="bebidas">
+            <div class="estoque-container">
+                <div class="estoque-resumo cards-grid">
+                    <div class="info-card">
+                        <div class="card-icon bg-orange"><i class="fas fa-beer"></i></div>
+                        <div class="card-info"><h3>Bebidas Cadastradas</h3><p class="card-value" id="bebidasTotal">0</p></div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-blue"><i class="fas fa-box-open"></i></div>
+                        <div class="card-info"><h3>Total Unidades</h3><p class="card-value" id="bebidasUnidades">0</p></div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-green"><i class="fas fa-dollar-sign"></i></div>
+                        <div class="card-info"><h3>Valor Total</h3><p class="card-value" id="bebidasValor">R$ 0,00</p></div>
+                    </div>
+                </div>
+
+                <div class="estoque-actions card">
+                    <button class="btn btn-primary" id="btnCadastrarBebida">
+                        <i class="fas fa-plus"></i> Cadastrar Bebida
+                    </button>
+                </div>
+
+                <!-- Modal Cadastro Bebida -->
+                <div class="modal" id="modalBebida" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-beer"></i> Cadastrar Bebida</h3>
+                            <button class="btn-close" id="btnFecharModalBebida"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group"><label for="nomeBebida">Nome</label><input type="text" id="nomeBebida" placeholder="Ex: Brahma Lata 350ml"></div>
+                            <div class="form-group"><label for="categoriaBebida">Categoria</label><input type="text" id="categoriaBebida" placeholder="Ex: cerveja, refrigerante"></div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="unidadesPorCaixa">Unidades por Caixa</label><input type="number" id="unidadesPorCaixa" placeholder="12 (lata)" value="12" min="1"></div>
+                                <div class="form-group"><label for="quantidadeUnidadesBebida">Qtd. Unidades</label><input type="number" id="quantidadeUnidadesBebida" placeholder="0"></div>
+                                <div class="form-group"><label for="quantidadeCaixasBebida">Qtd. Caixas</label><input type="number" id="quantidadeCaixasBebida" placeholder="0"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="valorVendaUnidadeBebida">Venda Unidade (R$)</label><input type="number" id="valorVendaUnidadeBebida" step="0.01" placeholder="0,00"></div>
+                                <div class="form-group"><label for="valorVendaCaixaBebida">Venda Caixa (R$)</label><input type="number" id="valorVendaCaixaBebida" step="0.01" placeholder="0,00"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="valorCustoUnidadeBebida">Custo Unidade (R$)</label><input type="number" id="valorCustoUnidadeBebida" step="0.01" placeholder="0,00"></div>
+                                <div class="form-group"><label for="valorCustoCaixaBebida">Custo Caixa (R$)</label><input type="number" id="valorCustoCaixaBebida" step="0.01" placeholder="0,00"></div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnSalvarBebida"><i class="fas fa-save"></i> Salvar</button>
+                            <button class="btn btn-secondary" id="btnCancelarBebida"><i class="fas fa-times"></i> Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Editar Bebida -->
+                <div class="modal" id="modalEditarBebida" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-edit"></i> Editar Bebida</h3>
+                            <button class="btn-close" id="btnFecharModalEditarBebida"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="editarBebidaId">
+                            <div class="form-group"><label>Bebida</label><p id="editarBebidaNome" class="form-static"></p></div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="editarUnidadesBebida">Unidades Atuais</label><input type="number" id="editarUnidadesBebida" placeholder="0"></div>
+                                <div class="form-group"><label for="editarAdicionarUnidades">+ Unidades</label><input type="number" id="editarAdicionarUnidades" placeholder="0"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="editarCaixasBebida">Caixas Atuais</label><input type="number" id="editarCaixasBebida" placeholder="0"></div>
+                                <div class="form-group"><label for="editarAdicionarCaixas">+ Caixas</label><input type="number" id="editarAdicionarCaixas" placeholder="0"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="editarVendaUnidade">Venda Unidade (R$)</label><input type="number" id="editarVendaUnidade" step="0.01" placeholder="0,00"></div>
+                                <div class="form-group"><label for="editarVendaCaixa">Venda Caixa (R$)</label><input type="number" id="editarVendaCaixa" step="0.01" placeholder="0,00"></div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group"><label for="editarCustoUnidade">Custo Unidade (R$)</label><input type="number" id="editarCustoUnidade" step="0.01" placeholder="0,00"></div>
+                                <div class="form-group"><label for="editarCustoCaixa">Custo Caixa (R$)</label><input type="number" id="editarCustoCaixa" step="0.01" placeholder="0,00"></div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnAtualizarBebida"><i class="fas fa-save"></i> Atualizar</button>
+                            <button class="btn btn-secondary" id="btnCancelarEdicaoBebida"><i class="fas fa-times"></i> Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="estoque-lista card">
+                    <h3><i class="fas fa-beer"></i> Bebidas em Estoque</h3>
+                    <div class="table-responsive">
+                        <table class="data-table" id="tabelaBebidas">
+                            <thead>
+                                <tr><th>Nome</th><th>Categoria</th><th>Un/Cx</th><th>Estoque</th><th>Venda (Un/Cx)</th><th>Lucro/Un</th><th>Ações</th></tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== ESTOQUE MERCEARIA ==================== -->
+        <section class="tab-content" id="mercearia">
+            <div class="estoque-container">
+                <div class="estoque-resumo cards-grid">
+                    <div class="info-card">
+                        <div class="card-icon bg-orange"><i class="fas fa-store"></i></div>
+                        <div class="card-info"><h3>Produtos Cadastrados</h3><p class="card-value" id="merceariaTotal">0</p></div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-blue"><i class="fas fa-boxes"></i></div>
+                        <div class="card-info"><h3>Total Unidades</h3><p class="card-value" id="merceariaUnidades">0</p></div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-green"><i class="fas fa-dollar-sign"></i></div>
+                        <div class="card-info"><h3>Valor Total</h3><p class="card-value" id="merceariaValor">R$ 0,00</p></div>
+                    </div>
+                </div>
+
+                <div class="estoque-actions card">
+                    <button class="btn btn-primary" id="btnCadastrarMercearia">
+                        <i class="fas fa-plus"></i> Cadastrar Produto
+                    </button>
+                </div>
+
+                <!-- Modal Cadastro Mercearia -->
+                <div class="modal" id="modalMercearia" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-store"></i> Cadastrar Produto Mercearia</h3>
+                            <button class="btn-close" id="btnFecharModalMercearia"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="nomeMercearia">Nome do Produto</label>
+                                <input type="text" id="nomeMercearia" placeholder="Ex: Salgadinho Elma Chips">
+                            </div>
+                            <div class="form-group">
+                                <label for="categoriaMercearia">Categoria</label>
+                                <input type="text" id="categoriaMercearia" placeholder="Ex: salgadinho, bala, chocolate, biscoito">
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="quantidadeMercearia">Quantidade (un)</label>
+                                    <input type="number" id="quantidadeMercearia" placeholder="0" min="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="estoqueMinMercearia">Estoque Mínimo</label>
+                                    <input type="number" id="estoqueMinMercearia" placeholder="5" value="5" min="0">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="valorVendaMercearia">Preço de Venda (R$)</label>
+                                    <input type="number" id="valorVendaMercearia" step="0.01" placeholder="0,00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="valorCustoMercearia">Custo (R$)</label>
+                                    <input type="number" id="valorCustoMercearia" step="0.01" placeholder="0,00">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnSalvarMercearia"><i class="fas fa-save"></i> Salvar</button>
+                            <button class="btn btn-secondary" id="btnCancelarMercearia"><i class="fas fa-times"></i> Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Editar Mercearia -->
+                <div class="modal" id="modalEditarMercearia" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-edit"></i> Editar Produto</h3>
+                            <button class="btn-close" id="btnFecharModalEditarMercearia"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="editarMerceariaId">
+                            <div class="form-group">
+                                <label>Produto</label>
+                                <p id="editarMerceariaNome" class="form-static"></p>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="editarQtdMercearia">Quantidade Atual</label>
+                                    <input type="number" id="editarQtdMercearia" placeholder="0">
+                                </div>
+                                <div class="form-group">
+                                    <label for="editarAddMercearia">+ Adicionar</label>
+                                    <input type="number" id="editarAddMercearia" placeholder="0">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="editarVendaMercearia">Preço de Venda (R$)</label>
+                                    <input type="number" id="editarVendaMercearia" step="0.01" placeholder="0,00">
+                                </div>
+                                <div class="form-group">
+                                    <label for="editarCustoMerceariaEdit">Custo (R$)</label>
+                                    <input type="number" id="editarCustoMerceariaEdit" step="0.01" placeholder="0,00">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label for="editarMinMercearia">Estoque Mínimo</label>
+                                <input type="number" id="editarMinMercearia" placeholder="5">
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnAtualizarMercearia"><i class="fas fa-save"></i> Atualizar</button>
+                            <button class="btn btn-secondary" id="btnCancelarEdicaoMercearia"><i class="fas fa-times"></i> Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="estoque-lista card">
+                    <h3><i class="fas fa-store"></i> Produtos em Estoque — Mercearia</h3>
+                    <div class="table-responsive">
+                        <table class="data-table" id="tabelaMercearia">
+                            <thead>
+                                <tr>
+                                    <th>Produto</th>
+                                    <th>Categoria</th>
+                                    <th>Estoque</th>
+                                    <th>V. Venda</th>
+                                    <th>V. Custo</th>
+                                    <th>Lucro/un</th>
+                                    <th>Ações</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== FORNECEDORES ==================== -->
+        <section class="tab-content" id="fornecedores">
+            <div class="fornecedores-container">
+                <div class="fornecedores-actions card">
+                    <button class="btn btn-primary" id="btnCadastrarFornecedor">
+                        <i class="fas fa-plus"></i> Entrada Rápida (Fornecedor + Produto)
+                    </button>
+                    <button class="btn btn-info" id="btnCadastroFornecedor">
+                        <i class="fas fa-user-plus"></i> Cadastrar Fornecedor
+                    </button>
+                    <button class="btn btn-success" id="btnNovaCompra">
+                        <i class="fas fa-shopping-cart"></i> Nova Compra
+                    </button>
+                </div>
+
+                <!-- Carteira por Fornecedor -->
+                <div class="card">
+                    <h3><i class="fas fa-wallet"></i> Carteira por Fornecedor</h3>
+                    <div id="carteiraFornecedores" class="carteira-lista"></div>
+                </div>
+
+                <!-- Modal Cadastro Fornecedor (só nome, contato, notas) -->
+                <div class="modal" id="modalCadastroFornecedor" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-truck"></i> Cadastrar Fornecedor</h3>
+                            <button class="btn-close" id="btnFecharCadastroFornecedor"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group"><label for="supplierNome">Nome</label><input type="text" id="supplierNome" placeholder="Nome do fornecedor"></div>
+                            <div class="form-group"><label for="supplierContato">Contato</label><input type="text" id="supplierContato" placeholder="Telefone ou e-mail"></div>
+                            <div class="form-group"><label for="supplierNotas">Observações</label><input type="text" id="supplierNotas" placeholder="Opcional"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnSalvarCadastroFornecedor"><i class="fas fa-save"></i> Salvar</button>
+                            <button class="btn btn-secondary" id="btnCancelarCadastroFornecedor">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Modal Nova Compra -->
+                <div class="modal modal-large" id="modalNovaCompra" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-shopping-cart"></i> Nova Compra</h3>
+                            <button class="btn-close" id="btnFecharNovaCompra"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="compraFornecedorId">Fornecedor</label>
+                                <select id="compraFornecedorId"><option value="">Selecione...</option></select>
+                            </div>
+                            <div class="form-group">
+                                <label>Itens da compra</label>
+                                <div id="compraItensLista"></div>
+                                <button type="button" class="btn btn-sm btn-secondary mt-2" id="btnAdicionarItemCompra"><i class="fas fa-plus"></i> Adicionar item</button>
+                            </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnSalvarCompra"><i class="fas fa-save"></i> Salvar compra e atualizar estoque</button>
+                            <button class="btn btn-secondary" id="btnCancelarNovaCompra">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal" id="modalFornecedor" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-truck"></i> Cadastrar Fornecedor / Entrada</h3>
+                            <button class="btn-close" id="btnFecharModalFornecedor"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="form-group">
+                                <label for="nomeFornecedor">Nome do Fornecedor</label>
+                                <input type="text" id="nomeFornecedor" placeholder="Ex: Distribuidora XYZ">
+                            </div>
+                            <div class="form-group">
+                                <label for="tipoProdutoFornecedor">Tipo de Produto</label>
+                                <input type="text" id="tipoProdutoFornecedor" placeholder="Ex: Cigarros, Bebidas, Doces">
+                            </div>
+                            <div class="form-group">
+                                <label for="nomeProdutoFornecedor">Nome do Produto</label>
+                                <input type="text" id="nomeProdutoFornecedor" placeholder="Ex: Brahma Lata, Kent Azul, Trident Morango">
+                            </div>
+                            <div class="form-group" style="background:#1a1a1a;border-radius:6px;padding:10px;">
+                                <p style="margin:0;font-size:0.8rem;color:#aaa;">
+                                    <i class="fas fa-magic" style="color:#f0c040;"></i>
+                                    <strong style="color:#f0c040;">Detecção automática</strong> — o sistema identifica pelo nome do produto se é
+                                    <em>cigarro</em>, <em>bebida</em> ou <em>mercearia</em> e adiciona ao estoque certo.
+                                </p>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="quantidadeFornecedor">Quantidade</label>
+                                    <input type="number" id="quantidadeFornecedor" placeholder="0" min="0">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="valorUnitarioFornecedor">💰 Custo Unitário (R$)</label>
+                                    <input type="number" id="valorUnitarioFornecedor" step="0.01" placeholder="0,00">
+                                    <small style="color:#888;">Quanto você pagou por unidade</small>
+                                </div>
+                                <div class="form-group">
+                                    <label for="valorVendaFornecedor">🏷️ Preço de Venda (R$)</label>
+                                    <input type="number" id="valorVendaFornecedor" step="0.01" placeholder="0,00">
+                                    <small style="color:#888;">Quanto cobrar ao cliente</small>
+                                </div>
+                            </div>
+                            <div id="previaMargem" style="display:none;padding:8px 12px;background:#111;border-radius:6px;margin-top:4px;font-size:0.85rem;"></div>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnSalvarFornecedor"><i class="fas fa-save"></i> Salvar e Integrar ao Estoque</button>
+                            <button class="btn btn-secondary" id="btnCancelarFornecedor"><i class="fas fa-times"></i> Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="fornecedores-lista card">
+                    <h3><i class="fas fa-truck"></i> Fornecedores Cadastrados</h3>
+                    <div class="table-responsive">
+                        <table class="data-table" id="tabelaFornecedores">
+                            <thead><tr><th>Fornecedor</th><th>Estoque</th><th>Produto</th><th>Qtd</th><th>Custo/un</th><th>Venda/un</th><th>Margem</th><th>Total custo</th><th>Data</th><th>Ações</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Modal Editar Fornecedor -->
+                <div class="modal" id="modalEditarFornecedor" style="display: none;">
+                    <div class="modal-content">
+                        <div class="modal-header">
+                            <h3><i class="fas fa-edit"></i> Editar Entrada de Fornecedor</h3>
+                            <button class="btn-close" id="btnFecharModalEditarFornecedor"><i class="fas fa-times"></i></button>
+                        </div>
+                        <div class="modal-body">
+                            <input type="hidden" id="editarFornecedorId">
+                            <div class="form-group">
+                                <label for="editarNomeFornecedor">Nome do Fornecedor</label>
+                                <input type="text" id="editarNomeFornecedor">
+                            </div>
+                            <div class="form-group">
+                                <label for="editarNomeProdutoFornecedor">Nome do Produto</label>
+                                <input type="text" id="editarNomeProdutoFornecedor">
+                            </div>
+                            <div class="form-group">
+                                <label for="editarTipoProdutoFornecedor">Tipo de Produto</label>
+                                <input type="text" id="editarTipoProdutoFornecedor">
+                            </div>
+                            <div class="form-group">
+                                <p id="editarCategoriaDetectada" style="font-size:0.82rem;color:#f0c040;margin:0;padding:6px 10px;background:#1a1a1a;border-radius:6px;"></p>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="editarQuantidadeFornecedor">Quantidade</label>
+                                    <input type="number" id="editarQuantidadeFornecedor" min="0">
+                                </div>
+                            </div>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="editarValorUnitarioFornecedor">💰 Custo Unitário (R$)</label>
+                                    <input type="number" id="editarValorUnitarioFornecedor" step="0.01">
+                                </div>
+                                <div class="form-group">
+                                    <label for="editarValorVendaFornecedor">🏷️ Preço de Venda (R$)</label>
+                                    <input type="number" id="editarValorVendaFornecedor" step="0.01">
+                                </div>
+                            </div>
+                            <p style="font-size:0.78rem;color:#aaa;margin:6px 0 0;">
+                                <i class="fas fa-info-circle" style="color:#f0c040;"></i>
+                                Alterar a quantidade ajusta automaticamente o estoque (positivo = adiciona, negativo = remove).
+                            </p>
+                        </div>
+                        <div class="modal-footer">
+                            <button class="btn btn-primary" id="btnSalvarEdicaoFornecedor"><i class="fas fa-save"></i> Salvar</button>
+                            <button class="btn btn-secondary" id="btnCancelarEdicaoFornecedor"><i class="fas fa-times"></i> Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== HISTÓRICO ==================== -->
+        <section class="tab-content" id="historico">
+            <div class="historico-container">
+                <div class="historico-filtros card">
+                    <h3><i class="fas fa-filter"></i> Filtros</h3>
+                    <div class="form-row">
+                        <div class="form-group"><label for="filtroDataInicio">Data Início</label><input type="date" id="filtroDataInicio"></div>
+                        <div class="form-group"><label for="filtroDataFim">Data Fim</label><input type="date" id="filtroDataFim"></div>
+                        <div class="form-group">
+                            <label for="filtroTipo">Tipo</label>
+                            <select id="filtroTipo">
+                                <option value="todos">Todos</option>
+                                <option value="venda">Vendas</option>
+                                <option value="cancelamento">Cancelamentos</option>
+                                <option value="fiado">Vendas Fiado</option>
+                                <option value="pagamento">Pagamentos Fiado</option>
+                                <option value="caixa">Movimentações Caixa</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <button class="btn btn-primary" id="btnFiltrarHistorico"><i class="fas fa-search"></i> Filtrar</button>
+                            <button class="btn btn-secondary" id="btnLimparFiltro"><i class="fas fa-eraser"></i> Limpar</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="historico-pdf card">
+                    <h3><i class="fas fa-file-pdf"></i> Exportar Relatórios PDF</h3>
+                    <div class="form-row">
+                        <button class="btn btn-danger" id="btnPdfDiario"><i class="fas fa-file-pdf"></i> Fechamento Diário</button>
+                        <button class="btn btn-danger" id="btnPdfSemanal"><i class="fas fa-file-pdf"></i> Vendas Semanais</button>
+                        <button class="btn btn-danger" id="btnPdfMensal"><i class="fas fa-file-pdf"></i> Vendas Mensais</button>
+                    </div>
+                </div>
+
+                <div class="historico-backup card">
+                    <h3><i class="fas fa-database"></i> Backup de Dados</h3>
+                    <p style="color:#aaa;font-size:0.85rem;margin-bottom:0.8rem;">
+                        Faça download de um arquivo com todos os dados do sistema ou restaure um backup existente.
+                    </p>
+                    <div class="form-row">
+                        <button class="btn btn-secondary" id="btnExportarBackup">
+                            <i class="fas fa-download"></i> Exportar Backup
+                        </button>
+                        <button class="btn btn-warning" id="btnRestaurarBackup">
+                            <i class="fas fa-upload"></i> Restaurar Backup
+                        </button>
+                        <input type="file" id="inputArquivoBackup" accept="application/json" style="display:none;">
+                    </div>
+                </div>
+
+                <div class="historico-resultados card">
+                    <h3><i class="fas fa-list"></i> Histórico Geral</h3>
+                    <div class="table-responsive">
+                        <table class="data-table" id="tabelaHistorico">
+                            <thead><tr><th>Data/Hora</th><th>Tipo</th><th>Descrição</th><th>Valor</th><th>Usuário/Cliente</th></tr></thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== GESTÃO (Management) ==================== -->
+        <section class="tab-content" id="gestao">
+            <div id="gestaoGate" class="card" style="max-width:360px;margin:2rem auto;padding:2rem;">
+                <h3><i class="fas fa-lock"></i> Acesso à Gestão</h3>
+                <p style="color:#aaa;margin-bottom:1rem;">Digite a senha para acessar o painel de gestão.</p>
+                <div class="form-group">
+                    <label for="gestaoSenha">Senha</label>
+                    <input type="password" id="gestaoSenha" placeholder="Senha" autocomplete="off">
+                </div>
+                <button type="button" class="btn btn-primary" id="btnGestaoEntrar"><i class="fas fa-sign-in-alt"></i> Entrar</button>
+                <p id="gestaoErro" style="color:#e53935;margin-top:8px;display:none;">Senha incorreta.</p>
+            </div>
+            <div id="gestaoConteudo" style="display:none;">
+                <nav class="gestao-internal-nav card">
+                    <ul>
+                        <li><button type="button" class="gestao-nav-btn active" data-gestao-panel="balanco"><i class="fas fa-chart-bar"></i> Balanço</button></li>
+                        <li><button type="button" class="gestao-nav-btn" data-gestao-panel="estoque"><i class="fas fa-smoking"></i> Estoque Cigarros</button></li>
+                        <li><button type="button" class="gestao-nav-btn" data-gestao-panel="bebidas"><i class="fas fa-beer"></i> Estoque Bebidas</button></li>
+                        <li><button type="button" class="gestao-nav-btn" data-gestao-panel="mercearia"><i class="fas fa-store"></i> Estoque Mercearia</button></li>
+                        <li><button type="button" class="gestao-nav-btn" data-gestao-panel="fornecedores"><i class="fas fa-truck"></i> Fornecedores</button></li>
+                        <li><button type="button" class="gestao-nav-btn" data-gestao-panel="historico"><i class="fas fa-history"></i> Histórico</button></li>
+                    </ul>
+                </nav>
+                <div id="gestaoPanelContainer">
+                <div id="gestaoBalanco" class="gestao-panel">
+                <h3 class="gestao-balanco-titulo"><i class="fas fa-chart-bar"></i> Balanço (analytics)</h3>
+                <div class="cards-grid">
+                    <div class="info-card">
+                        <div class="card-icon bg-yellow"><i class="fas fa-coins"></i></div>
+                        <div class="card-info">
+                            <h3>Vendido hoje</h3>
+                            <p class="card-value" id="gestaoVendaHoje">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-green"><i class="fas fa-calendar-week"></i></div>
+                        <div class="card-info">
+                            <h3>Vendido esta semana</h3>
+                            <p class="card-value" id="gestaoVendaSemana">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-blue"><i class="fas fa-calendar-alt"></i></div>
+                        <div class="card-info">
+                            <h3>Vendido este mês</h3>
+                            <p class="card-value" id="gestaoVendaMes">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-purple"><i class="fas fa-star"></i></div>
+                        <div class="card-info">
+                            <h3>Item mais lucrativo</h3>
+                            <p class="card-value" id="gestaoItemMaisLucrativo">-</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-red"><i class="fas fa-hand-holding-usd"></i></div>
+                        <div class="card-info">
+                            <h3>Total fiado</h3>
+                            <p class="card-value" id="gestaoTotalFiado">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-green"><i class="fas fa-percentage"></i></div>
+                        <div class="card-info">
+                            <h3>Margem de lucro (%)</h3>
+                            <p class="card-value" id="gestaoMargemPct">0%</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-blue"><i class="fas fa-coins"></i></div>
+                        <div class="card-info">
+                            <h3>Lucro total</h3>
+                            <p class="card-value" id="gestaoLucroTotal">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-yellow"><i class="fas fa-receipt"></i></div>
+                        <div class="card-info">
+                            <h3>Receita de vendas</h3>
+                            <p class="card-value" id="gestaoReceita">R$ 0,00</p>
+                        </div>
+                    </div>
+                    <div class="info-card">
+                        <div class="card-icon bg-orange"><i class="fas fa-balance-scale"></i></div>
+                        <div class="card-info">
+                            <h3>Custo vs Receita</h3>
+                            <p class="card-value" id="gestaoCustoReceita">-</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="charts-grid">
+                    <div class="chart-container">
+                        <h3><i class="fas fa-chart-line"></i> Margem de lucro</h3>
+                        <canvas id="graficoGestaoMargem"></canvas>
+                    </div>
+                    <div class="chart-container">
+                        <h3><i class="fas fa-exchange-alt"></i> Receita x Custo</h3>
+                        <canvas id="graficoGestaoReceitaCusto"></canvas>
+                    </div>
+                    <div class="chart-container chart-distribuicao-pequeno">
+                        <h3><i class="fas fa-chart-pie"></i> Distribuição de vendas</h3>
+                        <canvas id="graficoGestaoDistribuicao"></canvas>
+                    </div>
+                </div>
+                </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Painéis da Gestão (estoque, bebidas, mercearia, fornecedores, historico) - exibidos apenas dentro da área Gestão -->
+        <div id="gestaoPanelsStorage" style="display:none;" aria-hidden="true"></div>
+    </main>
+
+    <!-- Modal Trocar Operador -->
+    <div class="modal" id="modalTrocarOperador" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3><i class="fas fa-user-switch"></i> Trocar operador</h3>
+                <button class="btn-close" id="btnFecharModalOperador"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Selecione o operador</label>
+                    <select id="selectOperador">
+                        <option value="">— Selecionar —</option>
+                    </select>
+                </div>
+                <hr style="border-color:#333;margin:1rem 0;">
+                <p style="color:#aaa;font-size:0.9rem;">Cadastrar novo operador</p>
+                <div class="form-group">
+                    <label for="novoOperadorNome">Nome</label>
+                    <input type="text" id="novoOperadorNome" placeholder="Nome do operador">
+                </div>
+                <div class="form-group">
+                    <label for="novoOperadorPin">PIN (opcional)</label>
+                    <input type="password" id="novoOperadorPin" placeholder="PIN" autocomplete="off">
+                </div>
+                <button type="button" class="btn btn-secondary" id="btnAdicionarOperador"><i class="fas fa-plus"></i> Adicionar e selecionar</button>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btnConfirmarOperador"><i class="fas fa-check"></i> Usar selecionado</button>
+                <button type="button" class="btn btn-secondary" id="btnCancelarOperador">Cancelar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Scripts -->
+    <script src="js/data.js"></script>
+    <script src="js/charts.js"></script>
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>
